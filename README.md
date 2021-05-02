@@ -1,4 +1,4 @@
-# wind-rust-api
+# Wind Rust API
 Made for the high speed operations required in Wind.
 
 ## How to set up
