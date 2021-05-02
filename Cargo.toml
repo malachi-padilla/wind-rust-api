@@ -1,0 +1,29 @@
+[package]
+name = "mongodb_api_wind"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "3.3.2"
+futures = "0.3.14"
+serde = "1.0.125"
+bson = "1.2.2"
+actix-cors = "0.5.4"
+
+[dependencies.mongodb]
+version = "2.0.0-alpha.1"
+default-features = false
+features = ["async-std-runtime"]
+serde = "1.0.125"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+opt-level = 3
+
