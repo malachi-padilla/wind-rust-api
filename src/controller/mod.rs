@@ -1,29 +1,29 @@
-use std::fmt::format;
-
-use actix_web::web::{Data, Json, Query};
-use futures::stream::StreamExt;
-use actix_web::{HttpResponse, get, post};
+use actix_web::{HttpMessage, HttpRequest, web::{Data, Query}};
+use actix_web::{HttpResponse, get};
 use bson::Bson;
-use serde::{Deserialize};
-use crate::{models::user::User, service::user_service::UserService};
+use jsonwebtoken::errors::ErrorKind;
+use serde::{Deserialize,Serialize};
+use crate::{service::user_service::UserService, utils::verify_jwt};
 
-#[get("/")]
-pub async fn get_all_users(data: Data<UserService>) -> HttpResponse {
-    let mut users = data.get_all_users().await;
-    let mut docs = Vec::new();
+// #[get("/getAllUsers")]
+// pub async fn get_all_users(data: Data<UserService>) -> HttpResponse {
+//     let mut users = data.get_all_users().await;
+//     let mut docs = Vec::new();
 
-    while let Some(result) = users.next().await {
-        match result {
-            Ok(document) => {
-                let message: User = bson::from_bson(Bson::Document(document)).unwrap();
-                docs.push(message);
-            }
-            Err(_) => println!("Error"),
-        }
-    }
+//     while let Some(result) = users.next().await {
+//         match result {
+//             Ok(document) => {
+//                 let message = bson::from_bson(Bson::Document(document)).unwrap();
+//                 if let Some(user) = make_public_facing_user(message) {
+//                     docs.push(user);
+//                 }
+//             }
+//             Err(_) => println!("Error"),
+//         }
+//     }
     
-    HttpResponse::Ok().json(docs)
-}
+//     HttpResponse::Ok().json(docs)
+// }
 
 #[derive(Deserialize)]
 pub struct GetUserByUsernameRequest {
@@ -41,29 +41,72 @@ pub struct RegisterUserRequest {
     pub password: String,
     pub email: String
 }
-
-pub struct GetProfilePictureResponse {
-
+#[derive(Serialize)]
+pub struct GetProfilePicturesFromUsernamesResponse {
+    username: String,
 }
 
+#[get("/getUserByUsername")]
+pub async fn get_user_by_username(req: HttpRequest, data: Data<UserService>, params: Query<GetUserByUsernameRequest>) -> HttpResponse {
 
-#[get("/getUserById")]
-pub async fn get_user_by_id(data: Data<UserService>, params: Query<GetUserByUsernameRequest>) -> HttpResponse {
-    match data.get_user_by_username(params.username.clone()).await {
-        Some(user) => HttpResponse::Ok().json(user),
-        None => HttpResponse::Ok().json("No User Found")
-    }
+    let cookies = req.cookies().unwrap();
+    let token = cookies.iter().find(|item| {
+        item.name() == "token"
+    }).unwrap().value();
+
+    let user_claims = verify_jwt(token);
+
+    match user_claims {
+        Ok(token_data) => {
+            match data.get_user_by_username(params.username.clone(), token_data).await {
+                Some(user) => HttpResponse::Ok().json(user),
+                None => HttpResponse::Ok().json("No User Found")
+            }   
+        },
+        Err(error) => {
+            match error.kind() {
+                ErrorKind::ExpiredSignature => HttpResponse::BadRequest().json("Expired Token"),
+                _ => HttpResponse::BadRequest().json("Invalid Token")
+            }
+        }
+    } 
 }
 
-#[post("/registerUser")]
-pub async fn register_user(data: Data<UserService>, request_body: Json<RegisterUserRequest>) -> HttpResponse {
-    data.insert_user(request_body.0).await;
-    HttpResponse::Ok().json("Success")
+#[get("/getPersonalUser")]
+pub async fn get_personal_user(req: HttpRequest, data: Data<UserService>) -> HttpResponse {
+    let cookies = req.cookies().unwrap();
+    let token = cookies.iter().find(|item| {
+        item.name() == "token"
+    }).unwrap().value();
+
+    let user_claims = verify_jwt(token);
+    match user_claims {
+        Ok(token_data) => {
+            let personal_user = data.get_personal_user(token_data).await;
+            match personal_user {
+                Some(user) => HttpResponse::Ok().json(user),
+                None => HttpResponse::Ok().json("No User Found")
+            }
+        },
+        Err(error) => {
+            match error.kind() {
+                ErrorKind::ExpiredSignature => HttpResponse::BadRequest().json("Expired Token"),
+                _ => HttpResponse::BadRequest().json("Invalid Token")
+            }
+        }
+    } 
+
 }
+// #[post("/registerUser")]
+// pub async fn register_user(data: Data<UserService>, request_body: Json<RegisterUserRequest>) -> HttpResponse {
+//     data.insert_user(request_body.0).await;
+//     HttpResponse::Ok().json("Success")
+// }
 
 #[get("/getProfilePicture")]
 pub async fn get_profile_picture(data: Data<UserService>, params: Query<GetUserByUsernameRequest>) -> HttpResponse {
-    match data.get_user_by_username(params.username.clone()).await {
+    // revise)
+    match data.strictly_get_user_by_username(params.username.clone()).await {
         Some(user) => {
             if let Some(title) = user.get("profilePicture").and_then(Bson::as_str) {
                 if title == "" {
@@ -78,34 +121,3 @@ pub async fn get_profile_picture(data: Data<UserService>, params: Query<GetUserB
         None => HttpResponse::Ok().json("No User Found")
     }
 }
-
-
-// router.get("/getProfilePicture", async (req, res) => {
-//     try {
-//       const { userId, username } = req.query;
-  
-//       let user: any;
-//       if (username) {
-//         user = await User.findOne({ username });
-//       } else if (userId) {
-//         user = await User.findById(userId);
-//       }
-  
-//       const profilePicture = user.profilePicture;
-  
-//       if (profilePicture && profilePicture !== "") {
-//         generateS3BucketUrl(process.env.PROFILE_PICTURES_BUCKET, profilePicture)
-//           .then((url) => {
-//             res.send(url);
-//           })
-//           .catch((err) => {
-//             console.log(err);
-//             res.status(400).send("Error");
-//           });
-//       } else {
-//         res.send("https://source.unsplash.com/random");
-//       }
-//     } catch (e) {
-//       res.status(400).send("Error fetching user");
-//     }
-//   });
