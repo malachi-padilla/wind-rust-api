@@ -1,8 +1,8 @@
 use bson::Bson;
 use chrono::{Date, DateTime, Utc};
-use mongodb::bson::{oid::ObjectId};
-use serde::{Serialize, Deserialize};
-#[derive(Serialize, Deserialize)]
+use mongodb::bson::oid::ObjectId;
+use serde::{Deserialize, Serialize};
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct User {
     _id: ObjectId,
     sentFriendRequests: Vec<String>,
@@ -10,11 +10,11 @@ pub struct User {
     friends: Vec<String>,
     lastOnline: DateTime<Utc>,
     username: String,
-    password: String,    
+    password: String,
     createdAt: DateTime<Utc>,
     updatedAt: DateTime<Utc>,
     profilePicture: String,
-    email: String
+    email: String,
 }
 
 #[derive(Serialize, Debug)]
@@ -26,7 +26,6 @@ pub struct PublicFacingUser {
     pub username: String,
     pub profilePicture: String,
 }
-
 
 #[derive(Serialize, Debug)]
 pub struct PersonalApplicationUser {
@@ -44,5 +43,5 @@ pub struct PersonalApplicationUser {
 pub struct Claims {
     pub userId: String,
     pub iat: i32,
-    pub exp: i32
+    pub exp: i32,
 }

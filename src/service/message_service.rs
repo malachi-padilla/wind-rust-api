@@ -1,13 +1,16 @@
-use bson::Document;
 use mongodb::Collection;
+
+use crate::models::message::Message;
 
 #[derive(Clone)]
 pub struct MessageService {
-    collection: Collection
+    collection: Collection<Message>,
 }
 
 impl MessageService {
-    pub fn new(collection: Collection<Document>) -> MessageService {
-        MessageService { collection: collection }
+    pub fn new(collection: Collection<Message>) -> MessageService {
+        MessageService {
+            collection: collection,
+        }
     }
 }
